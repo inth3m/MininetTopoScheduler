@@ -71,7 +71,7 @@ class Topo(object):
             if not(srcName in self.nodes) or not(destName in self.nodes):
                 return False
             "sorted by node name"
-            srcName,destName = sorted(srcName,destName)
+            srcName,destName = sorted([srcName,destName])
             srcNode = self.nodes[srcName]
             destNode = self.nodes[destName]
             if self.link[srcNode].count(destNode):
@@ -86,7 +86,7 @@ class Topo(object):
             if not(srcName in self.nodes) or not(destName in self.nodes):
                 return False
             "sorted by node name"
-            srcName,destName = sorted(srcName,destName)
+            srcName,destName = sorted([srcName,destName])
             srcNode = self.nodes[srcName]
             destNode = self.nodes[destName]
             if self.link[srcNode].count(destNode) == 0:
@@ -101,4 +101,21 @@ class Node(object):
         self.name = name
         self.type = type
         self.ip = ip
+
+if __name__ == "__main__":
+    topos = Topologies()
+    topos.addTopo(topoName="simpleTopo")
+    topo = topos.topos["simpleTopo"]
+    topo.addNode(type="host",ip="127.0.0.1")
+    topo.addNode(type="host",ip="127.0.0.1")
+    topo.addLink("host0","host1")
+
+    print(topo.topoName)
+    for key in topo.nodes:
+        print(topo.nodes[key].name)
+    for key in topo.link:
+        print("src：",key.name)
+        for n in topo.link[key]:
+            print(n.name,end="")
+        print("")
     
