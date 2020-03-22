@@ -40,7 +40,7 @@ class Topo(object):
             self.count = {}
             self.count.setdefault("host",0)
             self.count.setdefault("switch",0)
-            self.count.setdefault("contorller",0)
+            self.count.setdefault("controller",0)
         
         def addNode(self,node=None,type=None,name=None,ip=None):
             if node == None:
@@ -93,6 +93,58 @@ class Topo(object):
                 print("link does not exist")
                 return False
             self.link[srcNode].remove(destNode)
+        
+        # topo 转成字典，方便写入文件
+        def topoToDict(self):
+            data = {}
+            data.setdefault('topo',[])
+            data.setdefault('host',[])
+            data.setdefault('switch',[])
+            data.setdefault('controller',[])
+            data.setdefault('link',[])
+            topoName = {}
+            topoName['name'] = self.topoName
+            topoList = []
+            topoList.append(topoName)
+            nodeList = {}
+            nodeList.setdefault('host',[])
+            nodeList.setdefault('switch',[])
+            nodeList.setdefault('controller',[])
+            #key: node name, value: node
+            for name,node in self.nodes.items():
+                n = {}
+                n['name'] = name
+                n['ip'] = node.ip
+                nodeList[node.type].append(n)
+            # key: srcNode, value： desNode list
+            linkList = []
+            for src,dest in self.link.items():
+                for d in dest:
+                    linkDic = {}
+                    linkDic.setdefault('source',src.name)
+                    linkDic.setdefault('destination',d.name)
+                    linkList.append(linkDic)
+            data['topo'] = topoList
+            data['host'] = nodeList['host']
+            data['switch'] = nodeList['switch']
+            data['controller'] = nodeList['controller']
+            data['link'] = linkList
+            return data
+
+            
+
+        def printTopo(self):
+            topo = self
+            print("topo name:",topo.topoName)
+            print("node list:",end="")
+            for key in topo.nodes:
+                print(topo.nodes[key].name,end=" ")
+            print("\nlink list:")
+            for key in topo.link:
+                print("src：",key.name,end=" link ")
+                for n in topo.link[key]:
+                    print(n.name,end=" ")
+                print("")
             
 
         
@@ -109,13 +161,6 @@ if __name__ == "__main__":
     topo.addNode(type="host",ip="127.0.0.1")
     topo.addNode(type="host",ip="127.0.0.1")
     topo.addLink("host0","host1")
+    topo.topoToDict()
 
-    print(topo.topoName)
-    for key in topo.nodes:
-        print(topo.nodes[key].name)
-    for key in topo.link:
-        print("src：",key.name)
-        for n in topo.link[key]:
-            print(n.name,end="")
-        print("")
     
