@@ -8,98 +8,83 @@ from mininet.net import Mininet
 from mininet.log import setLogLevel,output,info,debug
 from mininet.cli import CLI
 from mininet.node import Controller, RemoteController, Node
-
+from itertools import chain, groupby
 import os
  
-class Nets(object):
-    ""
+class NetManager(object):
     def __init__(self):
-        self.nets = {}
-        self.netNum = 0
-        # ruing net
-        self.netName = ""
-        self.net = None
+        self.net = Mininet( controller=Controller,autoSetMacs=True)
+        self.count = {}
+        self.count.setdefault('hosts',0)
+        self.count.setdefault('switches',0)
+        self.count.setdefault('controllers',0)
 
-    def addNet(self, netName, net=None):
-        if net != None:
-            self.nets[netName] = net
-            return net
-        
-        if netName == "":
-            netName = "net" + str(self.netNum)
-        net = Mininet(topo=None, autoSetMacs=True,autoStaticArp=False)
-        # Add a default controller
-        info('*** Adding controller\n' )
-        classes = net.controller
-        if not isinstance( classes, list ):
-            classes = [ classes ]
-        for i, cls in enumerate( classes ):
-            # Allow Controller objects because nobody understands partial()
-            if isinstance( cls, Controller ):
-                net.addController( cls )
-            else:
-                net.addController( 'c%d' % i, cls )
-        self.nets[netName] = net
-        return net
 
-    def runingNet(self, netName):
-        if netName == self.netName:
-            debug("该网络正在运行\n")
-            return False
-        net = self.nets.get(netName)
-        if net == None:
-            debug("net 不存在")
-            return False
-        if self.net != None:
-            debug("停止正在运行的网络:",self.netName)
-            self.net.stop()
-        net.start()
-        self.netName = netName
+    def update(self):
+        titles = ['hosts','switches','controllers']
+        for name in titles:
+            nodes = getattr(self.net,name)
+            if nodes == None:
+                continue
+            for n in nodes:
+                self.count[name] += 1
+        #print(self.count)
+
+    def getNet(self):
+        return self.net
+    
+    def setNet(self,net):
         self.net = net
-    
-    def addHost(self,nodeName,netName=None,IP=None):
-        if netName == None:
-            netName = self.netName
-        net = self.nets.get(netName)
-        if net == None:
-            debug("net 不存在")
-            return False
-        net.addHost(nodeName,ip=IP)
 
-    def addSwitch(self,nodeName,netName=None,):
-        if netName == None:
-            netName = self.netName
-        net = self.nets.get(netName)
-        if net == None:
-            debug("net 不存在")
-            return False
-        net.addSwitch(nodeName)
+    def addController(self,name):
+        self.addController(name)
+        self.count['controllers'] += 1
+
+    def addHost(self,name,IP=None):
+        self.net.addHost(name,ip=IP)
+        self.count['hosts'] += 1
+
+    def addSwitch(self,name):
+        self.net.addSwitch(name)
+        self.count['switches'] += 1
     
-    def addLink(self,node1,node2,netName=None):
-        if netName == None:
-            netName = self.netName
-        net = self.nets.get(netName)
-        if net == None:
-            debug("net 不存在")
-            return False
-        net.addLink(node1,node2)
+    def addLink(self,node1,node2):
+        self.net.addLink(node1,node2)
 
     def getHostInfo(self,hostName):
         host = self.net.getNodeByName(hostName)
         info(host.name,host.intfs,host.params)
         return host.params
-
-        
-
-  
-if __name__ == "__main__":
-    setLogLevel('info')
-    net = Nets()
-    net.addNet("net0")
-    net.addHost("h1","net0",IP = "10.0.0.1")
-    net.addHost("h2","net0",IP = "10.0.0.2")
-    net.addSwitch("s1","net0")
-    net.addLink("s1","h1","net0")
-    net.addLink("s1","h2","net0")
-    net.runingNet("net0")
-    CLI(net.nets["net0"])
+    
+    def nextIP(self):
+        return self.ipAdd( self.net.nextIP,ipBaseNum=self.net.ipBaseNum,prefixLen=self.net.prefixLen ) +'/%s' % self.net.prefixLen
+                             
+    def ipAdd(self, i, prefixLen=8, ipBaseNum=0x0a000000 ):
+        imax = 0xffffffff >> prefixLen
+        assert i <= imax, 'Not enough IP addresses in the subnet'
+        mask = 0xffffffff ^ imax
+        ipnum = ( ipBaseNum & mask ) + i
+        return self.ipStr( ipnum )
+    
+    def ipStr(self, ip ):
+        w = ( ip >> 24 ) & 0xff
+        x = ( ip >> 16 ) & 0xff
+        y = ( ip >> 8 ) & 0xff
+        z = ip & 0xff
+        return "%i.%i.%i.%i" % ( w, x, y, z )
+    
+    def startSwitch(self):
+        net = self.net
+        for switch in net.switches:
+            info( switch.name + ' ')
+            switch.start( net.controllers )
+        started = {}
+        for swclass, switches in groupby(
+                sorted( net.switches,
+                        key=lambda s: str( type( s ) ) ), type ):
+            switches = tuple( switches )
+            if hasattr( swclass, 'batchStartup' ):
+                success = swclass.batchStartup( switches )
+                started.update( { s: s for s in success } )
+        if net.waitConn:
+            net.waitConnected()

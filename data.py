@@ -23,16 +23,14 @@ link:
 
 import yaml
 import os
-from mininet.topo import Topo, SingleSwitchTopo
-from mininet.net import Mininet
+from mininet.topo import Topo, SingleSwitchTopo,LinearTopo
+from mininet.net import Mininet, Controller
 from mininet.cli import CLI
 from mininet.log import setLogLevel,output,info,debug
-from topo import Nets
+from topo import NetManager
 
 class DataManager:
-  def __init__(self,nets):
-        self.nets = nets
-  
+
   def getNet(self,fileName):
     # load data from file
     if not(os.path.exists(fileName) and os.path.isfile(fileName)):
@@ -40,44 +38,41 @@ class DataManager:
     file = open(fileName,'r')
     fileData = file.read()
     file.close()
-    data = yaml.load(fileData,Loader=yaml.FullLoader)
-    
-    # get net name
-    netName = data['net']['name']
-    net = self.nets.addNet(netName)
-    
+    data = yaml.load(fileData)
+    net = Mininet( controller=Controller )
+    #get controller
+    nodes = data['controllers']
+    for n in nodes:
+        net.addController(n['name'])
+
     # get hosts
     nodes = data['hosts']
     for n in nodes:
-          print(n['ip'])
-          self.nets.addHost(n['name'],netName,n['ip'])
-    
+        net.addHost(n['name'],ip=n['ip'])
+
     #get switchs
     nodes = data['switches']
     for n in nodes:
-          self.nets.addSwitch(n['name'],netName)
-    
+          net.addSwitch(n['name'])
+
     #get links
     links = data['link']
     for l in links:
-          self.nets.addLink(l['source'],l['destination'],netName)
-    net.start()
-    CLI(net)
-          
-          
+          net.addLink(l['source'],l['destination'])
+    #net.start()
+    #CLI(net)
+    return net
 
-  def writeNet(self,fileName,netname):
+
+
+  def writeNet(self,fileName,net):
     # 一个 yaml 文件只写一个 topology
     # if os.path.exists(fileName):
     #     return False
     types = ['hosts','switches','controllers']
     data = {}
-    data['net'] = {'name': netname}
-
-    #get net from nets
-    net = self.nets.nets.get(netname)
     if net == None:
-      return False
+        return False
 
     for t in types:
       node_list = []
@@ -99,21 +94,15 @@ class DataManager:
           node_dic['destination'] = l.intf2.node.name
           link_list.append(node_dic)
     data['link'] = link_list
-    curpath = os.path.dirname(os.path.realpath(__file__))
-    yamlpath = os.path.join(curpath, fileName)
-    with open(yamlpath, "w") as f:
-        yaml.dump(data, f)
-    
+    #curpath = os.path.dirname(os.path.realpath(__file__))
+    with open(fileName, 'w') as nf:
+        yaml.dump(data, nf)
 
-    
 
-    
+
 if __name__ == "__main__":
     setLogLevel('info')
-    nets = Nets()
-    #topo = SingleSwitchTopo()
-    #net = Mininet(topo)
-    #nets.addNet("singleTopo",net)
-    #data = Data(nets)
-    #data.writeNet("singleTopo.yml","singleTopo")
+    data = DataManager()
+    data.getNet("test.yml")
+    #data.writeNet("test.yml",net)
     #data.getNet("singleTopo.yml")
