@@ -135,6 +135,7 @@ class ConsoleApp( Frame ):
         self.netManager = NetManager()
         self.dataManager = DataManager()
         self.scheduler = Scheduler()
+        self.hosts = []
         # UI
         self.top = self.winfo_toplevel()
         self.top.title( 'Mininet节点调度子系统' )
@@ -155,6 +156,8 @@ class ConsoleApp( Frame ):
         for name in titles:
             nodes = getattr( self.netManager.getNet(), name)
             frame, consoles = self.createConsoles(cframe, nodes, width, titles[ name ] )
+            if name == 'hosts':
+                self.hosts = consoles
             self.consoles[ name ] = Object( frame=frame, consoles=consoles )
         self.selected = None
         self.select( 'hosts' )
@@ -216,8 +219,9 @@ class ConsoleApp( Frame ):
         scheduleMenu.add_command(labe='部署主机',command = self.deployHost)
         scheduleMenu.add_command(labe='部署交换机',command = self.deploySwitch)
         menubar.add_cascade(label='调度', menu=scheduleMenu)
-        #serverMenu = Menu(menubar, tearoff=0)
-        #menubar.add_cascade(label='服务控制', menu=serverMenu)
+        serverMenu = Menu(menubar, tearoff=0)
+        menubar.add_cascade(label='服务', menu=serverMenu)
+        serverMenu.add_command(labe='服务部署',command = self.deployServer)
         self.top.config(menu=menubar)        
 
     def createFramBar( self ):
@@ -320,12 +324,17 @@ class ConsoleApp( Frame ):
     def quit( self ):
         "Stop everything and quit."
         self.stop( wait=False)
+        os.system("sudo mn -c")
         Frame.quit( self )
 
     def getNet(self,fileName):
         #os.system("sudo mn -c")
         self.netManager.net.stop()
-        self.netManager.net = self.dataManager.getNet(fileName)
+        net = self.dataManager.getNet(fileName)
+        if net == None:
+            tkinter.messagebox.showinfo(title='提示', message='拓扑文件导入失败！')
+            return
+        self.netManager.net = net
         self.netManager.net.start()
         self.cframe.destroy()
         self.createCfram()
@@ -354,7 +363,7 @@ class ConsoleApp( Frame ):
             self.cframe.destroy()
             self.createCfram()
             inputWindow.destroy()
-            tkinter.messagebox.showinfo(title='提示', message='节点部署导入成功！')
+            tkinter.messagebox.showinfo(title='提示', message='节点部署成功！')
 
         
         inputWindow = tkinter.Toplevel(self)
@@ -377,10 +386,10 @@ class ConsoleApp( Frame ):
             self.cframe.destroy()
             self.createCfram()
             inputWindow.destroy()
-            tkinter.messagebox.showinfo(title='提示', message='节点部署导入成功！')
+            tkinter.messagebox.showinfo(title='提示', message='节点部署成功！')
 
         inputWindow = tkinter.Toplevel(self)
-        inputWindow.geometry('300x250')
+        inputWindow.geometry('300x150')
         inputWindow.title("输入")
         tkinter.Label(inputWindow,text='节点位置: ').place(x=10, y=10)
         srcNode = tkinter.StringVar()
@@ -389,6 +398,20 @@ class ConsoleApp( Frame ):
         name = tkinter.StringVar()
         Entry(inputWindow, textvariable=name).place(x=130, y=50) 
         Button(inputWindow,text='确定', command=comfirm).place(x=180,y=100)
+    
+    def deployServer(self):
+        def comfirm():
+            self.scheduler.deployServer(name.get(),self.hosts)
+            inputWindow.destroy()
+            tkinter.messagebox.showinfo(title='提示', message='服务部署成功！')
+        inputWindow = tkinter.Toplevel(self)
+        inputWindow.geometry('300x100')
+        inputWindow.title("输入")
+        tkinter.Label(inputWindow,text='服务名称: ').place(x=10, y=10)
+        name = tkinter.StringVar()
+        Entry(inputWindow, textvariable=name).place(x=130, y=10)
+        Button(inputWindow,text='确定', command=comfirm).place(x=180,y=50)
+
 # Make it easier to construct and assign objects
 
 def assign( obj, **kwargs ):

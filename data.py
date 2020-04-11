@@ -31,14 +31,21 @@ from topo import NetManager
 
 class DataManager:
 
+#  def judge(self,data):
+        
   def getNet(self,fileName):
     # load data from file
     if not(os.path.exists(fileName) and os.path.isfile(fileName)):
-        return False
+        return None
     file = open(fileName,'r')
     fileData = file.read()
     file.close()
-    data = yaml.load(fileData)
+    try:
+        data = yaml.load(fileData,Loader = yaml.SafeLoader)
+    except yaml.YAMLError as exc:
+        print(exc)
+        return None
+  
     net = Mininet( controller=Controller )
     #get controller
     nodes = data['controllers']

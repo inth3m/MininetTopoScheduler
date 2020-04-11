@@ -1,42 +1,72 @@
 from topo import NetManager
 from mininet.net import Mininet
 from mininet.cli import CLI
+from console import Console
 import os
 class Scheduler():    
     
-    # TODO 判断 srcNOde 是否存在
-    # 自定义 Nodename
-    # 自定义 IP
-    # 接口名字
-    def deployHost(self, netManager, srcNode,name = None, ip = None):
-        if name == "":
+    def deployHost(self, netManager, srcNode,name = None, ip = None, mac = None):
+        nodeType = ''
+
+        # 判断源节点是否在网络里
+        if netManager.isHost(srcNode):
+            nodeType = 'host'
+        if netManager.isSwitch(srcNode):
+            nodeType = 'swicth'
+        if nodeType == '':
+            return False
+
+        # 生成节点参数
+        if name == '':
             name = 'h' + str(netManager.count['hosts'] + 1)
-        if ip == "":
+        if ip == '':
             ip = netManager.nextIP()
+        
         netManager.addHost(name,ip)
         netManager.addLink(name,srcNode)
-        src = netManager.net.getNodeByName(srcNode)
-        intfs = src.intfNames()
-        num = intfs[-1][-1]  
-        intName = srcNode + '-eth' + str(int (num))
-        src.attach(intName)
-        #print(name)
-        node = netManager.net.getNodeByName(name)
-        node.setIP(ip)
-        #node.cmd('ifconfig h3-eth0 10.3')
-        #netManager.net.build()
-        #netManager.net.start()
+        
+        if type == 'host':
+            netManager.configHost(srcNode)
+            netManager.configHost(name,ip)
+        else:
+            netManager.startSwitch()
+            netManager.configHost(name,ip)
+        
         #CLI(netManager.net)
-    
+
+
     def deploySwitch(self, netManager, srcNode,name = None):
+        nodeType = ''
+
+        # 判断源节点是否在网络里
+        if netManager.isHost(srcNode):
+            nodeType = 'host'
+        if netManager.isSwitch(srcNode):
+            nodeType = 'swicth'
+        if nodeType == '':
+            return False
+        
+        # 生成参数
         if name == "":
             name = 's' + str(netManager.count['switches'] + 1)
+        
         netManager.addSwitch(name)
         netManager.addLink(srcNode,name)
-        src = netManager.net.getNodeByName(srcNode)
-        intfs = src.intfNames()
-        num = intfs[-1][-1]  
-        intName = srcNode + '-eth' + str(int (num))
-        src.attach(intName)
-        #CLI(netManager.net)
+
+        if type == 'host':
+            netManager.configHost(name)
+        
         netManager.startSwitch()
+        # src = netManager.net.getNodeByName(srcNode)
+        # intfs = src.intfNames()
+        # num = intfs[-1][-1]  
+        # intName = srcNode + '-eth' + str(int (num))
+        # src.attach(intName)
+        # #CLI(netManager.net)
+        # netManager.startSwitch()
+
+    def deployServer(self, name, consoles):
+        for host in consoles:
+            if host.waiting() == False:
+                host.sendCmd('python ' + name)
+                break

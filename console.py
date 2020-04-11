@@ -27,7 +27,7 @@ class Console( Frame ):
         self.text = self.makeWidgets( )
         self.bindEvents()
         self.sendCmd( 'export TERM=dumb' )
-
+    
         self.outputHook = None
 
     def makeWidgets( self ):
@@ -50,6 +50,18 @@ class Console( Frame ):
         if mac != None:
             label_mac = Label(self, text = "节点MAC地址:" + str(mac))
             label_mac.pack(side = 'top')
+        
+        srcNode = "links："
+        for intf in self.node.intfList():
+            link = intf.link
+            if link:
+                node1, node2 = link.intf1.node, link.intf2.node
+                if node1 == self.node:
+                    srcNode +=" " + node2.name
+                else:
+                    srcNode +=" " + node1.name
+        Label(self, text = srcNode).pack(side = 'top')
+        #self.serverLable.pack(side = 'top')
         
         text.pack( side='left', expand=True, fill='both' )
         ybar.pack( side='right', fill='y' )
@@ -107,10 +119,12 @@ class Console( Frame ):
         "Handle control-c."
         self.node.sendInt()
 
+
     def sendCmd( self, cmd ):
         "Send a command to our node."
         if not self.node.waiting:
             self.node.sendCmd( cmd )
+
 
     def handleReadable( self, _fds, timeoutms=None ):
         "Handle file readable event."

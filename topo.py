@@ -28,7 +28,6 @@ class NetManager(object):
                 continue
             for n in nodes:
                 self.count[name] += 1
-        #print(self.count)
 
     def getNet(self):
         return self.net
@@ -88,3 +87,32 @@ class NetManager(object):
                 started.update( { s: s for s in success } )
         if net.waitConn:
             net.waitConnected()
+    
+    def configHost(self,name,ip = None,mac = None):
+        node = self.net.getNodeByName(name)
+        intf = node.defaultIntf()
+        if intf:
+            node.configDefault()
+        else:
+            node.configDefault( ip=None, mac=None )           
+        if ip != None:
+            node.setIP(ip)
+        if mac != None:
+            node.setMac(mac)
+    
+    # 判断 name 是否在网络里
+    def isHost(self, name):
+        nodes = getattr(self.net,'hosts')
+        for n in nodes:
+            if name == n.name:
+                return True
+        return False
+    
+    def isSwitch(self, name):
+        nodes = getattr(self.net,'switches')
+        for n in nodes:
+            if name == n.name:
+                return True
+
+        return False
+    
