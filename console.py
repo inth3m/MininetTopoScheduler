@@ -32,11 +32,7 @@ class Console( Frame ):
 
     def makeWidgets( self ):
         "Make a label, a text area, and a scroll bar."
-
-        def newTerm( net=self.net, node=self.node, title=self.title ):
-            "Pop up a new terminal window for a node."
-            net.terms += makeTerms( [ node ], title )
-        label = Button( self, text=self.node.name, command=newTerm)
+        label = Button( self, text=self.node.name, command=None)
         label.pack( side='top', fill='x' )
         text = Text( self, wrap='word')
         ybar = Scrollbar( self, orient='vertical', width=7,

@@ -4,7 +4,7 @@
 import re
 
 import tkinter
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox,ttk
 from tkinter import *
 import os
 from mininet.log import setLogLevel,debug,info
@@ -128,6 +128,7 @@ class Graph( Frame ):
 
 class ConsoleApp( Frame ):
 
+    #UI
     def __init__( self, nets=None, parent=None, width=3 ):
         Frame.__init__( self, parent )
 
@@ -188,7 +189,6 @@ class ConsoleApp( Frame ):
         consoles = []
         index = 0
         for node in nodes:
-            info(type(node))
             console = Console( f, self.netManager.net, node, title=title )
             consoles.append( console )
             row = int(index / width)
@@ -209,19 +209,35 @@ class ConsoleApp( Frame ):
     def createMenuBar(self):
         menubar = Menu(self)
         fileMenu = Menu(menubar, tearoff=0)
-        fileMenu.add_command(label='打开', command=lambda: self.getNet( tkinter.filedialog.askopenfilename()))
+        fileMenu.add_command(label='打开', command=lambda: self.getNet(tkinter.filedialog.askopenfilename()))
         fileMenu.add_command(label='保存', command=self.writeNet)
         fileMenu.add_separator()
         fileMenu.add_command(label='退出', command=self.quit)
         menubar.add_cascade(label='文件', menu=fileMenu)
         
+        # 部署是自动部署
         scheduleMenu = Menu(menubar, tearoff=0)
-        scheduleMenu.add_command(labe='部署主机',command = self.deployHost)
-        scheduleMenu.add_command(labe='部署交换机',command = self.deploySwitch)
-        menubar.add_cascade(label='调度', menu=scheduleMenu)
-        serverMenu = Menu(menubar, tearoff=0)
-        menubar.add_cascade(label='服务', menu=serverMenu)
-        serverMenu.add_command(labe='服务部署',command = self.deployServer)
+        scheduleMenu.add_command(label='部署主机',command = self.deployHost)
+        scheduleMenu.add_command(label='部署服务',command = self.deployServer)
+        menubar.add_cascade(label='部署', menu=scheduleMenu)
+        
+        # # 服务控制
+        # serverMenu = Menu(menubar, tearoff=0)
+        # menubar.add_cascade(label='服务', menu=serverMenu)
+        # serverMenu.add_command(label='服务部署',command = self.deployServer)
+
+        #拓扑管理
+        topoMenu = Menu(menubar,tearoff = 0)
+        topoMenu.add_command(label = '添加主机',command = lambda: self.addNode('host'))
+        topoMenu.add_command(label = '添加交换机',command = lambda: self.addNode('switch'))
+        topoMenu.add_command(label = '添加连接',command = self.addLink)
+        topoMenu.add_separator()
+        topoMenu.add_command(label = '删除节点',command = self.delNode)
+        topoMenu.add_command(label = '删除连接',command = self.delLink)
+
+        menubar.add_cascade(label= '拓扑管理', menu=topoMenu)
+
+        
         self.top.config(menu=menubar)        
 
     def createFramBar( self ):
@@ -246,6 +262,7 @@ class ConsoleApp( Frame ):
         f.pack( padx=4, pady=4, fill='x' )
         return f
 
+    #function
     def clear( self ):
         "Clear selection."
         for console in self.selected.consoles:
@@ -269,7 +286,10 @@ class ConsoleApp( Frame ):
         i = 0
         for console in consoles:
             i = ( i + 1 ) % count
-            ip = consoles[ i ].node.IP()
+            try:
+                ip = consoles[ i ].node.IP()
+            except:
+                return
             console.sendCmd( 'ping ' + ip )
 
     def iperf( self ):
@@ -278,11 +298,11 @@ class ConsoleApp( Frame ):
         if self.waiting( consoles ):
             return
         count = len( consoles )
-        self.setOutputHook( self.updateGraph )
+        #self.setOutputHook( self.updateGraph )
         for console in consoles:
             # Sometimes iperf -sD doesn't return,
             # so we run it in the background instead
-            console.node.cmd( 'iperf -s &' )
+           console.node.cmd( 'iperf -s &' )
         i = 0
         for console in consoles:
             i = ( i + 1 ) % count
@@ -327,6 +347,7 @@ class ConsoleApp( Frame ):
         os.system("sudo mn -c")
         Frame.quit( self )
 
+    # data model
     def getNet(self,fileName):
         #os.system("sudo mn -c")
         self.netManager.net.stop()
@@ -339,7 +360,6 @@ class ConsoleApp( Frame ):
         self.cframe.destroy()
         self.createCfram()
         tkinter.messagebox.showinfo(title='提示', message='拓扑文件导入成功！')
-        self.netManager.update()
 
     def writeNet(self):
         def comfirm():
@@ -356,9 +376,11 @@ class ConsoleApp( Frame ):
         entry_new_name.place(x=130, y=10)  
         Button(inputWindow,text='确定', command=comfirm).place(x=180,y=50)
 
+    # scheduler model
     def deployHost(self):
         def comfirm():
-            self.scheduler.deployHost(self.netManager,srcNode.get(),name.get(),ip.get())
+            if ddl.get() == '带宽优先':
+                self.scheduler.bandwidth(self.netManager)
             #update window
             self.cframe.destroy()
             self.createCfram()
@@ -367,37 +389,36 @@ class ConsoleApp( Frame ):
 
         
         inputWindow = tkinter.Toplevel(self)
-        inputWindow.geometry('300x200')
+        inputWindow.geometry('300x90')
         inputWindow.title("输入")
-        tkinter.Label(inputWindow,text='节点位置: ').place(x=10, y=10)
-        srcNode = tkinter.StringVar()
-        Entry(inputWindow, textvariable=srcNode).place(x=130, y=10)
-        tkinter.Label(inputWindow,text='节点名字: ').place(x=10, y=50)
-        name = tkinter.StringVar()
-        Entry(inputWindow, textvariable=name).place(x=130, y=50)
-        tkinter.Label(inputWindow,text='节点ip: ').place(x=10, y=90)
-        ip = tkinter.StringVar()
-        Entry(inputWindow, textvariable=ip).place(x=130, y=90)   
-        Button(inputWindow,text='确定', command=comfirm).place(x=180,y=130)
+        tkinter.Label(inputWindow,text='调度模式: ').place(x=10, y=10)
+        ddl = ttk.Combobox(inputWindow)
+        ddl['value'] = ('带宽优先', '时延优先')
+        ddl.current(0)
+        ddl.place(x=100,y=10)  
+        Button(inputWindow,text='确定', command=comfirm).place(x=180,y=50)
     
-    def deploySwitch(self):
-        def comfirm():
-            self.scheduler.deploySwitch(self.netManager,srcNode.get(),name.get())
-            self.cframe.destroy()
-            self.createCfram()
-            inputWindow.destroy()
-            tkinter.messagebox.showinfo(title='提示', message='节点部署成功！')
+    # def deploySwitch(self):
+    #     def comfirm():
+    #         flag = self.scheduler.deploySwitch(self.netManager,srcNode.get(),name.get())
+    #         if flag == False:
+    #             tkinter.messagebox.showinfo(title='提示', message='源节点不存在！')
+    #             return
+    #         self.cframe.destroy()
+    #         self.createCfram()
+    #         inputWindow.destroy()
+    #         tkinter.messagebox.showinfo(title='提示', message='节点部署成功！')
 
-        inputWindow = tkinter.Toplevel(self)
-        inputWindow.geometry('300x150')
-        inputWindow.title("输入")
-        tkinter.Label(inputWindow,text='节点位置: ').place(x=10, y=10)
-        srcNode = tkinter.StringVar()
-        Entry(inputWindow, textvariable=srcNode).place(x=130, y=10)
-        tkinter.Label(inputWindow,text='节点名字: ').place(x=10, y=50)
-        name = tkinter.StringVar()
-        Entry(inputWindow, textvariable=name).place(x=130, y=50) 
-        Button(inputWindow,text='确定', command=comfirm).place(x=180,y=100)
+    #     inputWindow = tkinter.Toplevel(self)
+    #     inputWindow.geometry('300x150')
+    #     inputWindow.title("输入")
+    #     tkinter.Label(inputWindow,text='节点源: ').place(x=10, y=10)
+    #     srcNode = tkinter.StringVar()
+    #     Entry(inputWindow, textvariable=srcNode).place(x=130, y=10)
+    #     tkinter.Label(inputWindow,text='节点名字: ').place(x=10, y=50)
+    #     name = tkinter.StringVar()
+    #     Entry(inputWindow, textvariable=name).place(x=130, y=50) 
+    #     Button(inputWindow,text='确定', command=comfirm).place(x=180,y=100)
     
     def deployServer(self):
         def comfirm():
@@ -411,7 +432,139 @@ class ConsoleApp( Frame ):
         name = tkinter.StringVar()
         Entry(inputWindow, textvariable=name).place(x=130, y=10)
         Button(inputWindow,text='确定', command=comfirm).place(x=180,y=50)
+        
+    # topo model
+    def addNode(self,type):
+        def comfirm():
+            if type == 'host':
+                flag = self.netManager.addHost(name.get(),ip.get())
+            else:
+                flag = self.netManager.addSwitch(name.get())
+            if flag == False:
+                tkinter.messagebox.showinfo(title='提示', message= s + '名字已经存在！')
+                return
+            self.cframe.destroy()
+            self.createCfram()
+            inputWindow.destroy()
+            tkinter.messagebox.showinfo(title='提示', message= s + '添加成功！')
 
+        if type == 'host':
+            s = '主机'
+        else:
+            s = '交换机'
+        inputWindow = tkinter.Toplevel(self)
+        inputWindow.geometry('300x150')
+        inputWindow.title("输入")
+        tkinter.Label(inputWindow,text= s + '名字: ').place(x=10, y=10)
+        name = tkinter.StringVar()
+        Entry(inputWindow, textvariable=name).place(x=130, y=10)
+        if type == 'host':
+            tkinter.Label(inputWindow,text='主机IP: ').place(x=10, y=50)
+            ip = tkinter.StringVar()
+            Entry(inputWindow, textvariable=ip).place(x=130, y=50) 
+        Button(inputWindow,text='确定', command=comfirm).place(x=180,y=100)
+
+    def addLink(self):
+        def comfirm():
+            var = {
+                'bw':bandwith.get(),
+                'max_queue_size':queueSize.get(),
+                'delay': delay.get(),
+                'loss':loss.get(),
+                'jitter': jitter.get()
+            }
+            params = {}
+            f = False
+            for k,v in var:
+                if v:
+                    params[k] = v
+                    f = True
+                else:
+                    params[k] = None
+            if f == False:
+                params = None
+            flag = self.netManager.addLink(src.get(),dest.get(),params)
+            if flag == False:
+                tkinter.messagebox.showinfo(title='提示', message='节点不存在！')
+                return
+            self.cframe.destroy()
+            self.createCfram()
+            inputWindow.destroy()
+            tkinter.messagebox.showinfo(title='提示', message='添加连接成功！')
+
+        inputWindow = tkinter.Toplevel(self)
+        inputWindow.geometry('300x350')
+        inputWindow.title("输入")
+        tkinter.Label(inputWindow,text='源节点: ').place(x=10, y=10)
+        src = tkinter.StringVar()
+        Entry(inputWindow, textvariable=src).place(x=130, y=10)
+        
+        tkinter.Label(inputWindow,text='目标节点: ').place(x=10, y=50)
+        dest = tkinter.StringVar()
+        Entry(inputWindow, textvariable=dest).place(x=130, y=50) 
+        
+        tkinter.Label(inputWindow,text='带宽（Mbit）: ').place(x=10, y=90)
+        bandwith = tkinter.StringVar()
+        Entry(inputWindow, textvariable=bandwith).place(x=130, y=90) 
+        
+        tkinter.Label(inputWindow,text='时延（ms）: ').place(x=10, y=130)
+        delay = tkinter.StringVar()
+        Entry(inputWindow, textvariable=delay).place(x=130, y=130) 
+        
+        tkinter.Label(inputWindow,text='丢包率%: ').place(x=10, y=170)
+        loss = tkinter.StringVar()
+        Entry(inputWindow, textvariable=loss).place(x=130, y=170) 
+        
+        tkinter.Label(inputWindow,text='最大队列长度: ').place(x=10, y=210)
+        queueSize = tkinter.StringVar()
+        Entry(inputWindow, textvariable=queueSize).place(x=130, y=210)
+
+        tkinter.Label(inputWindow,text='抖动: ').place(x=10, y=250)
+        jitter = tkinter.StringVar()
+        Entry(inputWindow, textvariable=jitter).place(x=130, y=250)
+        
+        Button(inputWindow,text='确定', command=comfirm).place(x=180,y=300)
+
+    def delNode(self):
+        def comfirm():
+            flag = self.netManager.delNode(name.get())
+            if flag == False:
+                tkinter.messagebox.showinfo(title='提示', message='主机不存在！')
+                return
+            self.cframe.destroy()
+            self.createCfram()
+            inputWindow.destroy()
+            tkinter.messagebox.showinfo(title='提示', message='主机删除成功！')
+        
+        inputWindow = tkinter.Toplevel(self)
+        inputWindow.geometry('300x100')
+        inputWindow.title("输入")
+        tkinter.Label(inputWindow,text='主机名字: ').place(x=10, y=10)
+        name = tkinter.StringVar()
+        Entry(inputWindow, textvariable=name).place(x=130, y=10)
+        Button(inputWindow,text='确定', command=comfirm).place(x=180,y=70)
+
+    def delLink(self):
+        def comfirm():
+            flag = self.netManager.delLink(src.get(),dest.get())
+            if flag == False:
+                tkinter.messagebox.showinfo(title='提示', message='节点不存在！')
+                return
+            self.cframe.destroy()
+            self.createCfram()
+            inputWindow.destroy()
+            tkinter.messagebox.showinfo(title='提示', message='连接删除成功！')
+
+        inputWindow = tkinter.Toplevel(self)
+        inputWindow.geometry('300x150')
+        inputWindow.title("输入")
+        tkinter.Label(inputWindow,text='源节点: ').place(x=10, y=10)
+        src = tkinter.StringVar()
+        Entry(inputWindow, textvariable=src).place(x=130, y=10)
+        tkinter.Label(inputWindow,text='目标节点: ').place(x=10, y=50)
+        dest = tkinter.StringVar()
+        Entry(inputWindow, textvariable=dest).place(x=130, y=50) 
+        Button(inputWindow,text='确定', command=comfirm).place(x=180,y=100)
 # Make it easier to construct and assign objects
 
 def assign( obj, **kwargs ):
